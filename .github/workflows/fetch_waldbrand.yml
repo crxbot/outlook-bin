@@ -1,0 +1,113 @@
+name: Fetch Waldbrand File and Generate Files
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  # verhindert, dass zwei Laeufe gleichzeitig dieselben Dateien generieren/hochladen
+  group: fetch-waldbrand
+  cancel-in-progress: false
+
+env:
+  R2_PREFIX: waldbrand
+
+jobs:
+  fetch_generate_deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10 # Sicherheitsnetz, falls der Download haengt
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.HG_PAT }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Cache Python packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download WebP and generate files + meta.json (mit Retry)
+        run: |
+          MAX_ATTEMPTS=5
+          SLEEP_SECONDS=10
+
+          for i in $(seq 1 "$MAX_ATTEMPTS"); do
+            if python scripts/waldbrand.py --out output/waldbrand; then
+              echo "[Waldbrand] Erfolgreich (Versuch $i/$MAX_ATTEMPTS)."
+              exit 0
+            fi
+            echo "[Waldbrand] Versuch $i/$MAX_ATTEMPTS fehlgeschlagen, warte ${SLEEP_SECONDS}s..."
+            sleep "$SLEEP_SECONDS"
+          done
+          echo "::error::[Waldbrand] Nach $MAX_ATTEMPTS Versuchen nicht erfolgreich - Abbruch."
+          exit 1
+
+      - name: Check output
+        run: |
+          test -s output/waldbrand/meta.json
+          ls -l output/waldbrand
+
+      - name: Gzip der Tagesdateien
+        run: |
+          # gleiche Dateinamen wie in meta.json, nur Inhalt gzip-komprimiert (meta.json bleibt Klartext)
+          for f in output/waldbrand/WALDBRAND_*; do
+            gzip -9 -n -c "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+          done
+          ls -l output/waldbrand
+
+      - name: Upload Tagesdateien zu R2 (mit Retry)
+        run: |
+          MAX_ATTEMPTS=3
+          for i in $(seq 1 "$MAX_ATTEMPTS"); do
+            # --delete entfernt alte Tages-Dateien, die nicht mehr in meta.json stehen
+            if aws s3 sync ./output/waldbrand \
+                "s3://${{ secrets.R2_BUCKET }}/${R2_PREFIX}/" \
+                --exclude "*" --include "WALDBRAND_*" \
+                --delete \
+                --content-type application/gzip \
+                --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com; then
+              echo "Upload erfolgreich (Versuch $i/$MAX_ATTEMPTS)."
+              exit 0
+            fi
+            echo "Upload fehlgeschlagen (Versuch $i/$MAX_ATTEMPTS), warte 10s..."
+            sleep 10
+          done
+          echo "::error::Upload der Tagesdateien nach $MAX_ATTEMPTS Versuchen fehlgeschlagen."
+          exit 1
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+      - name: Upload meta.json zu R2 (zuletzt, mit Retry)
+        run: |
+          GENERATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          MAX_ATTEMPTS=3
+          for i in $(seq 1 "$MAX_ATTEMPTS"); do
+            if aws s3 cp ./output/waldbrand/meta.json \
+                "s3://${{ secrets.R2_BUCKET }}/${R2_PREFIX}/meta.json" \
+                --metadata "generated_at=${GENERATED_AT}" \
+                --content-type application/json \
+                --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com; then
+              echo "meta.json hochgeladen (Versuch $i/$MAX_ATTEMPTS)."
+              exit 0
+            fi
+            echo "Upload fehlgeschlagen (Versuch $i/$MAX_ATTEMPTS), warte 10s..."
+            sleep 10
+          done
+          echo "::error::Upload von meta.json nach $MAX_ATTEMPTS Versuchen fehlgeschlagen."
+          exit 1
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
