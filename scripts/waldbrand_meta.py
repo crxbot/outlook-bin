@@ -56,7 +56,8 @@ def build(raw, out):
     H, W = shape
 
     b = {k: x[k] for k in ("west", "east", "south", "north")}
-    meta = {"width": W, "height": H, "dtype": "uint8",
+    meta = {"generated_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "width": W, "height": H, "dtype": "uint8",
             "order": "row-major, oben links beginnend",
             "projection": "EPSG:3857 (Web Mercator)", "bounds": b,
             "bounds_3857": {"west": R * math.radians(b["west"]), "east": R * math.radians(b["east"]),
