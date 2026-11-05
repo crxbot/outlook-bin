@@ -95,18 +95,18 @@ jobs:
           GENERATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           MAX_ATTEMPTS=3
           for i in $(seq 1 "$MAX_ATTEMPTS"); do
-            if aws s3 cp ./output/waldbrand/meta.json \
-                "s3://${{ secrets.R2_BUCKET }}/${R2_PREFIX}/meta.json" \
+            if aws s3 cp ./output/waldbrand/metadata.json \
+                "s3://${{ secrets.R2_BUCKET }}/${R2_PREFIX}/metadata.json" \
                 --metadata "generated_at=${GENERATED_AT}" \
                 --content-type application/json \
                 --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com; then
-              echo "meta.json hochgeladen (Versuch $i/$MAX_ATTEMPTS)."
+              echo "metadata.json hochgeladen (Versuch $i/$MAX_ATTEMPTS)."
               exit 0
             fi
             echo "Upload fehlgeschlagen (Versuch $i/$MAX_ATTEMPTS), warte 10s..."
             sleep 10
           done
-          echo "::error::Upload von meta.json nach $MAX_ATTEMPTS Versuchen fehlgeschlagen."
+          echo "::error::Upload von metadata.json nach $MAX_ATTEMPTS Versuchen fehlgeschlagen."
           exit 1
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}

@@ -81,7 +81,7 @@ def main():
     a = ap.parse_args()
     out = Path(a.out)
 
-    if a.lat is not None and a.lon is not None and not (a.webp or a.webp_url) and (out / "meta.json").exists():
+    if a.lat is not None and a.lon is not None and not (a.webp or a.webp_url) and (out / "metadata.json").exists():
         return lookup(out, a.lat, a.lon)
 
     if a.webp:
