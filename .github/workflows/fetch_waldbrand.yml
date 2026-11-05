@@ -56,12 +56,12 @@ jobs:
 
       - name: Check output
         run: |
-          test -s output/waldbrand/meta.json
+          test -s output/waldbrand/metadata.json
           ls -l output/waldbrand
 
       - name: Gzip der Tagesdateien
         run: |
-          # gleiche Dateinamen wie in meta.json, nur Inhalt gzip-komprimiert (meta.json bleibt Klartext)
+          # gleiche Dateinamen wie in metadata.json, nur Inhalt gzip-komprimiert (metadata.json bleibt Klartext)
           for f in output/waldbrand/WALDBRAND_*; do
             gzip -9 -n -c "$f" > "$f.tmp" && mv "$f.tmp" "$f"
           done
@@ -71,7 +71,7 @@ jobs:
         run: |
           MAX_ATTEMPTS=3
           for i in $(seq 1 "$MAX_ATTEMPTS"); do
-            # --delete entfernt alte Tages-Dateien, die nicht mehr in meta.json stehen
+            # --delete entfernt alte Tages-Dateien, die nicht mehr in metadata.json stehen
             if aws s3 sync ./output/waldbrand \
                 "s3://${{ secrets.R2_BUCKET }}/${R2_PREFIX}/" \
                 --exclude "*" --include "WALDBRAND_*" \

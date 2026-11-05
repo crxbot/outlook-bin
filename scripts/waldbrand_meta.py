@@ -63,7 +63,7 @@ def build(raw, out):
             "bounds_3857": {"west": R * math.radians(b["west"]), "east": R * math.radians(b["east"]),
                             "south": R * merc_y(b["south"]), "north": R * merc_y(b["north"])},
             "nodata": 0, "levels": {str(k): v for k, v in LEGEND.items()}, "days": days}
-    (out / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+    (out / "metadata.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
     return meta
 
 
