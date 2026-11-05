@@ -20,7 +20,7 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v7
         with:
-          token: ${{ secrets.HG_PAT }}
+          token: ${{ secrets.WB_PAT }}
 
       - name: Setup Python
         uses: actions/setup-python@v7
